@@ -1,0 +1,4 @@
+{"asset_id":"asset-2026-001","file":"lab/exports/customer_list.xlsx","device_id":"usb-lex-01","user":"analyst_1","action":"copy_to_media","result":"blocked","reason":"policy_requires_media_approval","timestamp":"2026-08-28T09:24:00Z"}
+{"asset_id":"asset-2026-002","file":"lab/reports/security-summary.pdf","device_id":"usb-lex-01","user":"analyst_2","action":"copy_to_media","result":"allowed","reason":"approved","timestamp":"2026-08-28T09:25:00Z"}
+{"asset_id":"asset-2026-003","file":"lab/images/project-board.png","device_id":"usb-lex-02","user":"analyst_1","action":"backup_to_media","result":"warned","reason":"unsigned_write","timestamp":"2026-08-28T09:26:00Z"}
+{"asset_id":"asset-2026-004","file":"lab/secrets/.env","device_id":"usb-lex-01","user":"analyst_3","action":"copy_to_media","result":"blocked","reason":"secret_file_pattern","timestamp":"2026-08-28T09:27:00Z"}

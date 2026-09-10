@@ -1,0 +1,41 @@
+{
+  "policy_id": "dp-cs-2026-001",
+  "environment": "portfolio-lab",
+  "owner": "security-portfolio",
+  "metadata_checks": {
+    "require_stripped_exif": true,
+    "disallow_sensitive_keys": [
+      "CameraModel",
+      "GPSLatitude",
+      "GPSLongitude",
+      "GeoAltitude",
+      "Author"
+    ],
+    "required_fields_after_sanitize": [
+      "filesize",
+      "mime_type",
+      "sha256",
+      "sanitized"
+    ]
+  },
+  "secret_checks": {
+    "forbidden_patterns": [
+      "API_KEY",
+      "AWS_SECRET",
+      "PRIVATE_KEY",
+      "SSH_KEY",
+      "INTERNAL_TOKEN",
+      "DB_PASSWORD"
+    ],
+    "severity_threshold": "medium"
+  },
+  "media_rules": {
+    "disallow_auto_copy": true,
+    "disallow_unsigned_export": true,
+    "require_media_approval": true
+  },
+  "notes": [
+    "Synthetic-only dataset.",
+    "No client data is represented in this repository."
+  ]
+}

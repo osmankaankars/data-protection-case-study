@@ -1,0 +1,11 @@
+asset,category,rule,severity,status,evidence
+lab/documents/strategy-notes.pdf,metadata,metadata_removed,low,remediated,"{""field"": ""Author"", ""before"": ""Orion Team"", ""after"": null}"
+lab/images/project-board.png,metadata,metadata_removed,low,remediated,"{""field"": ""CameraModel"", ""before"": ""Canon EOS 80D"", ""after"": null}"
+lab/archive/incident_log.docx,metadata,metadata_removed,low,remediated,"{""field"": ""Author"", ""before"": ""demo_user"", ""after"": null}"
+lab/ci-secrets/.env.sample,secret_discovery,forbidden_pattern_found,high,high_risk,"{""line"": 12, ""type"": ""API_KEY"", ""matched_rule"": ""API_KEY"", ""confidence"": ""high""}"
+lab/mobile/config.env,secret_discovery,forbidden_pattern_found,high,high_risk,"{""line"": 4, ""type"": ""DB_PASSWORD"", ""matched_rule"": ""DB_PASSWORD"", ""confidence"": ""high""}"
+lab/code/connector.py,secret_discovery,forbidden_pattern_found,medium,high_risk,"{""line"": 88, ""type"": ""INTERNAL_TOKEN"", ""matched_rule"": ""INTERNAL_TOKEN"", ""confidence"": ""medium""}"
+lab/docs/api_usage.md,secret_discovery,forbidden_pattern_found,high,high_risk,"{""line"": 34, ""type"": ""AWS_SECRET"", ""matched_rule"": ""AWS_SECRET"", ""confidence"": ""high""}"
+lab/exports/customer_list.xlsx,media_control,media_action_blocked,high,blocked,"{""asset_id"": ""asset-2026-001"", ""user"": ""analyst_1"", ""device_id"": ""usb-lex-01"", ""action"": ""copy_to_media"", ""reason"": ""policy_requires_media_approval"", ""requires_approval"": true}"
+lab/images/project-board.png,media_control,media_action_warned,medium,warned,"{""asset_id"": ""asset-2026-003"", ""user"": ""analyst_1"", ""device_id"": ""usb-lex-02"", ""action"": ""backup_to_media"", ""reason"": ""unsigned_write"", ""requires_approval"": true}"
+lab/secrets/.env,media_control,media_action_blocked,high,blocked,"{""asset_id"": ""asset-2026-004"", ""user"": ""analyst_3"", ""device_id"": ""usb-lex-01"", ""action"": ""copy_to_media"", ""reason"": ""secret_file_pattern"", ""requires_approval"": true}"
