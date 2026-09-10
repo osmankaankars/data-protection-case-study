@@ -35,6 +35,17 @@ python scripts/data_protection_case_study.py \
   --output output
 ```
 
+### Optional policy profile use
+
+```bash
+python scripts/data_protection_case_study.py \
+  --metadata data/raw/metadata_inventory.jsonl \
+  --secrets data/raw/secret_scan_results.jsonl \
+  --media data/raw/media_transfer_events.jsonl \
+  --policy-name portfolio-lab \
+  --output output
+```
+
 ## Repository structure
 
 ```text
@@ -49,9 +60,22 @@ data-protection-case-study/
     data_protection_case_study.py
   templates/
     data_protection_report_template.md
+  workflows/
+    release-artifacts.yml
   output/
     (generated)
 ```
+
+## Implemented roadmap
+
+- Added optional policy profile support for reproducible local runs.
+- Added automated release artifact packaging with SHA-256 manifest and hash attestation flow.
+- Kept outputs stable and explicitly scoped for public portfolio safety.
+
+## Release notes
+
+- v0.1.0: Initial portfolio-safe case study structure.
+- v0.2.0: Release packaging + policy profile support.
 
 ## Outputs
 
@@ -64,4 +88,3 @@ data-protection-case-study/
 - The report contains synthetic hostnames and redacted sample paths.
 - Evidence is normalized to non-sensitive fields.
 - Explicitly states the boundaries of what this case does not do.
-

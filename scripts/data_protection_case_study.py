@@ -5,10 +5,97 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List
+
+
+BUILT_IN_POLICIES = {
+    "portfolio-lab": {
+        "policy_id": "dp-cs-2026-001",
+        "environment": "portfolio-lab",
+        "owner": "security-portfolio",
+        "metadata_checks": {
+            "require_stripped_exif": True,
+            "disallow_sensitive_keys": [
+                "CameraModel",
+                "GPSLatitude",
+                "GPSLongitude",
+                "GeoAltitude",
+                "Author",
+            ],
+            "required_fields_after_sanitize": [
+                "filesize",
+                "mime_type",
+                "sha256",
+                "sanitized",
+            ],
+        },
+        "secret_checks": {
+            "forbidden_patterns": [
+                "API_KEY",
+                "AWS_SECRET",
+                "PRIVATE_KEY",
+                "SSH_KEY",
+                "INTERNAL_TOKEN",
+                "DB_PASSWORD",
+            ],
+            "severity_threshold": "medium",
+        },
+        "media_rules": {
+            "disallow_auto_copy": True,
+            "disallow_unsigned_export": True,
+            "require_media_approval": True,
+        },
+        "notes": [
+            "Synthetic-only dataset.",
+            "No client data is represented in this repository.",
+        ],
+    },
+    "enterprise-lab": {
+        "policy_id": "dp-cs-2026-ENTERPRISE",
+        "environment": "enterprise-lab",
+        "owner": "security-portfolio",
+        "metadata_checks": {
+            "require_stripped_exif": True,
+            "disallow_sensitive_keys": [
+                "CameraModel",
+                "GPSLatitude",
+                "GPSLongitude",
+                "GeoAltitude",
+                "Author",
+                "Software",
+            ],
+            "required_fields_after_sanitize": [
+                "filesize",
+                "mime_type",
+                "sha256",
+                "sanitized",
+            ],
+        },
+        "secret_checks": {
+            "forbidden_patterns": [
+                "API_KEY",
+                "AWS_SECRET",
+                "PRIVATE_KEY",
+                "SSH_KEY",
+                "INTERNAL_TOKEN",
+                "DB_PASSWORD",
+                "PERSONAL_TOKEN",
+            ],
+            "severity_threshold": "high",
+        },
+        "media_rules": {
+            "disallow_auto_copy": True,
+            "disallow_unsigned_export": True,
+            "require_media_approval": True,
+        },
+        "notes": [
+            "Synthetic and sanitized datasets only.",
+            "Explicitly scoped for portfolio-safe demonstration.",
+        ],
+    },
+}
 
 
 def parse_args() -> argparse.Namespace:
@@ -16,7 +103,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--metadata", required=True, help="Path to metadata inventory JSONL")
     parser.add_argument("--secrets", required=True, help="Path to secret scan JSONL")
     parser.add_argument("--media", required=True, help="Path to media event JSONL")
-    parser.add_argument("--policy", required=True, help="Path to policy JSON")
+    parser.add_argument(
+        "--policy",
+        help="Path to policy JSON (optional; falls back to built-in policy profile)",
+    )
+    parser.add_argument(
+        "--policy-name",
+        choices=sorted(BUILT_IN_POLICIES.keys()),
+        default="portfolio-lab",
+        help="Built-in policy profile name",
+    )
     parser.add_argument("--output", required=True, help="Directory to write outputs")
     return parser.parse_args()
 
@@ -258,7 +354,10 @@ def main() -> None:
     metadata_rows = load_jsonl(args.metadata)
     secret_rows = load_jsonl(args.secrets)
     media_rows = load_jsonl(args.media)
-    policy = load_json(args.policy)
+    if args.policy:
+        policy = load_json(args.policy)
+    else:
+        policy = BUILT_IN_POLICIES[args.policy_name]
 
     findings: List[Dict[str, Any]] = []
     findings.extend(evaluate_metadata(policy, metadata_rows))
@@ -278,4 +377,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

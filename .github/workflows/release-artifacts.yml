@@ -1,0 +1,92 @@
+name: Package and release artifacts
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  package-and-sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Generate case study outputs
+        run: |
+          python scripts/data_protection_case_study.py \
+            --metadata data/raw/metadata_inventory.jsonl \
+            --secrets data/raw/secret_scan_results.jsonl \
+            --media data/raw/media_transfer_events.jsonl \
+            --policy data/raw/privacy_policy.json \
+            --output dist
+
+      - name: Build SBOM-like artifact manifest
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          output_dir = Path("dist")
+          file_names = [
+              "data_protection_report.json",
+              "data_protection_report.md",
+              "data_protection_findings.csv",
+          ]
+
+          entries = []
+          for file_name in file_names:
+              path = output_dir / file_name
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              entries.append(
+                  {
+                      "file": file_name,
+                      "sha256": digest,
+                      "size_bytes": path.stat().st_size,
+                  }
+              )
+
+          manifest = {
+              "artifact_type": "case-study",
+              "name": "data-protection-case-study",
+              "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "artifacts": entries,
+          }
+
+          (output_dir / "artifacts-manifest.json").write_text(
+              json.dumps(manifest, indent=2),
+              encoding="utf-8",
+          )
+
+          with (output_dir / "artifacts.sha256").open("w", encoding="utf-8") as handle:
+              for item in entries:
+                  handle.write(f"{item['sha256']}  {item['file']}\\n")
+          PY
+
+      - name: Create signed attestation for artifact hashes
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/artifacts.sha256
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/data_protection_report.json
+            dist/data_protection_report.md
+            dist/data_protection_findings.csv
+            dist/artifacts.sha256
+            dist/artifacts-manifest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
