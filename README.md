@@ -79,17 +79,20 @@ data-protection-case-study/
 
 ## Implemented roadmap
 
+### Completed
+
 - Added optional policy profile support for reproducible local runs.
 - Added automated release artifact packaging with SHA-256 manifest and hash attestation flow.
 - Kept outputs stable and explicitly scoped for public portfolio safety.
 - Added synthetic data kit documentation (`data/README.md`) and deterministic portfolio-safe input conventions.
 - Added a smoke-test workflow (`.github/workflows/smoke-test.yml`) covering portfolio-lab and enterprise-lab policy profiles.
 - Added control mapping metadata (`control` object per finding) and evidence-to-control sections in report output.
+- Added optional `--baseline` (and `--baseline-output`) report comparison mode.
+- Added a small “What changed” appendix (baseline delta summary + top added/resolved/changed findings).
 
 ### Planned
 
-- Add a lightweight `--baseline-output` argument to compare current findings against previous run results.
-- Add a small “what changed” appendix to generated outputs for scenario storytelling.
+- None for this phase.
 
 ## Release notes
 
@@ -97,6 +100,8 @@ data-protection-case-study/
 - v0.2.0: Release packaging + policy profile support.
 - v0.2.1: Smoke-test and data-kit polish; added roadmap plan section.
 - v0.2.2: Added evidence-to-control mapping for each finding and markdown/CSV reporting.
+- v0.2.3: Updated release output validation for control metadata and CSV headers.
+- v0.2.4: Added baseline comparison and performance-oriented change tracking.
 
 ## Outputs
 

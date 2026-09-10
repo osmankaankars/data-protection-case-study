@@ -174,6 +174,19 @@ def parse_args() -> argparse.Namespace:
         help="Built-in policy profile name",
     )
     parser.add_argument("--output", required=True, help="Directory to write outputs")
+    parser.add_argument(
+        "--baseline",
+        required=False,
+        default=None,
+        help="Optional baseline report JSON path for diff-style output.",
+    )
+    parser.add_argument(
+        "--baseline-output",
+        dest="baseline_output",
+        required=False,
+        default=None,
+        help="Alias for --baseline. Keeps compatibility with planned command names.",
+    )
     return parser.parse_args()
 
 
@@ -327,7 +340,149 @@ def _escape_markdown_cell(value: str) -> str:
     return str(value).replace("|", "\\|")
 
 
-def build_report(policy: Dict[str, Any], findings: List[Dict[str, Any]]) -> Dict[str, Any]:
+def _finding_identity(finding: Dict[str, Any]) -> str:
+    evidence = finding.get("evidence", {})
+    evidence_id = ""
+    if isinstance(evidence, dict):
+        for field in ("field", "line", "asset_id", "file", "path", "type"):
+            if evidence.get(field) is not None:
+                evidence_id = str(evidence.get(field))
+                break
+
+    return "|".join(
+        [
+            str(finding.get("asset", "")),
+            str(finding.get("category", "")),
+            str(finding.get("rule", "")),
+            evidence_id,
+        ]
+    )
+
+
+def _compare_with_baseline(
+    current_findings: List[Dict[str, Any]],
+    baseline_findings: List[Dict[str, Any]] | None,
+) -> Dict[str, Any]:
+    if not baseline_findings:
+        return {
+            "enabled": False,
+            "summary": {
+                "status": "not_run",
+                "current_findings": len(current_findings),
+                "baseline_findings": 0,
+                "added": 0,
+                "resolved": 0,
+                "changed": 0,
+                "unchanged": len(current_findings),
+            },
+            "added": [],
+            "resolved": [],
+            "changed": [],
+            "unchanged_count": len(current_findings),
+        }
+
+    from collections import defaultdict
+
+    baseline_map: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
+    for item in baseline_findings:
+        baseline_map[_finding_identity(item)].append(item)
+
+    added: List[Dict[str, Any]] = []
+    changed: List[Dict[str, Any]] = []
+    unchanged: List[Dict[str, Any]] = []
+
+    for item in current_findings:
+        key = _finding_identity(item)
+        candidate = None
+        if key in baseline_map and baseline_map[key]:
+            candidate = baseline_map[key].pop(0)
+
+        if candidate is None:
+            added.append(
+                {
+                    "asset": item.get("asset"),
+                    "category": item.get("category"),
+                    "rule": item.get("rule"),
+                    "status": item.get("status"),
+                    "severity": item.get("severity"),
+                }
+            )
+            continue
+
+        differences = []
+        if item.get("status") != candidate.get("status"):
+            differences.append("status")
+        if item.get("severity") != candidate.get("severity"):
+            differences.append("severity")
+
+        if item.get("control", {}).get("id") != candidate.get("control", {}).get("id"):
+            differences.append("control")
+
+        if not differences:
+            unchanged.append(
+                {
+                    "asset": item.get("asset"),
+                    "category": item.get("category"),
+                    "rule": item.get("rule"),
+                    "status": item.get("status"),
+                    "severity": item.get("severity"),
+                }
+            )
+            continue
+
+        changed.append(
+            {
+                "asset": item.get("asset"),
+                "category": item.get("category"),
+                "rule": item.get("rule"),
+                "differences": differences,
+                "current": {
+                    "status": item.get("status"),
+                    "severity": item.get("severity"),
+                },
+                "baseline": {
+                    "status": candidate.get("status"),
+                    "severity": candidate.get("severity"),
+                },
+            }
+        )
+
+    resolved: List[Dict[str, Any]] = []
+    for key in list(baseline_map.keys()):
+        for item in baseline_map[key]:
+            resolved.append(
+                {
+                    "asset": item.get("asset"),
+                    "category": item.get("category"),
+                    "rule": item.get("rule"),
+                    "status": item.get("status"),
+                    "severity": item.get("severity"),
+                }
+            )
+
+    return {
+        "enabled": True,
+        "summary": {
+            "status": "completed",
+            "current_findings": len(current_findings),
+            "baseline_findings": len(baseline_findings),
+            "added": len(added),
+            "resolved": len(resolved),
+            "changed": len(changed),
+            "unchanged": len(unchanged),
+        },
+        "added": added[:10],
+        "resolved": resolved[:10],
+        "changed": changed[:10],
+        "unchanged_count": len(unchanged),
+    }
+
+
+def build_report(
+    policy: Dict[str, Any],
+    findings: List[Dict[str, Any]],
+    baseline_findings: List[Dict[str, Any]] | None = None,
+) -> Dict[str, Any]:
     return {
         "generated_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
         "case_id": policy.get("policy_id", "dp-cs-manual"),
@@ -344,6 +499,7 @@ def build_report(policy: Dict[str, Any], findings: List[Dict[str, Any]]) -> Dict
         },
         "controls": build_controls_matrix(findings),
         "findings": findings,
+        "baseline_comparison": _compare_with_baseline(findings, baseline_findings),
     }
 
 
@@ -355,6 +511,7 @@ def write_json(output_dir: Path, payload: Dict[str, Any]) -> None:
 
 
 def write_markdown(output_dir: Path, payload: Dict[str, Any]) -> None:
+    comparison = payload.get("baseline_comparison", {})
     lines = [
         "# Data Protection Case Study Report",
         "",
@@ -423,6 +580,47 @@ def write_markdown(output_dir: Path, payload: Dict[str, Any]) -> None:
             "",
         ]
     )
+
+    if comparison.get("enabled"):
+        summary = comparison.get("summary", {})
+        lines.extend(
+            [
+                "## What changed",
+                f"- Baseline findings: {summary.get('baseline_findings', 0)}",
+                f"- Current findings: {summary.get('current_findings', 0)}",
+                f"- Added: {summary.get('added', 0)}",
+                f"- Resolved: {summary.get('resolved', 0)}",
+                f"- Changed: {summary.get('changed', 0)}",
+                f"- Unchanged: {summary.get('unchanged', 0)}",
+                "",
+            ]
+        )
+
+        if comparison.get("added"):
+            lines.extend(["### Added findings"])
+            for item in comparison["added"]:
+                lines.append(
+                    f"- **{item['asset']}** ({item['category']}) — `{item['rule']}` ({item['status']}, {item['severity']})"
+                )
+            lines.append("")
+
+        if comparison.get("resolved"):
+            lines.extend(["### Resolved findings"])
+            for item in comparison["resolved"]:
+                lines.append(
+                    f"- **{item['asset']}** ({item['category']}) — `{item['rule']}` ({item['status']}, {item['severity']})"
+                )
+            lines.append("")
+
+        if comparison.get("changed"):
+            lines.extend(["### Changed findings"])
+            for item in comparison["changed"]:
+                lines.append(
+                    f"- **{item['asset']}** ({item['category']}) — `{item['rule']}` "
+                    f"(diff: {', '.join(item['differences'])})"
+                )
+            lines.append("")
+
     output_dir.joinpath("data_protection_report.md").write_text(
         "\n".join(lines),
         encoding="utf-8",
@@ -478,7 +676,14 @@ def main() -> None:
     findings.extend(evaluate_secrets(policy, secret_rows))
     findings.extend(evaluate_media(policy, media_rows))
 
-    payload = build_report(policy, findings)
+    baseline_report_path = args.baseline_output or args.baseline
+    baseline_findings: List[Dict[str, Any]] | None = None
+    if baseline_report_path:
+        baseline_payload = load_json(baseline_report_path)
+        if isinstance(baseline_payload, dict):
+            baseline_findings = baseline_payload.get("findings")
+
+    payload = build_report(policy, findings, baseline_findings=baseline_findings)
 
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)

@@ -39,7 +39,7 @@ jobs:
           output_dir = Path("/tmp/dataprot-smoke-lab")
           report = json.loads((output_dir / "data_protection_report.json").read_text(encoding="utf-8"))
 
-          required_keys = {"generated_at", "case_id", "scope", "stats", "findings"}
+          required_keys = {"generated_at", "case_id", "scope", "stats", "findings", "baseline_comparison"}
           missing = required_keys - set(report)
           if missing:
               raise SystemExit(f"missing keys in report JSON: {sorted(missing)}")
@@ -60,6 +60,31 @@ jobs:
               expected = ["asset", "category", "rule", "severity", "status", "control_id", "control_name", "control_objective", "evidence"]
               if header != expected:
                   raise SystemExit(f"unexpected CSV header: {header}")
+          PY
+
+      - name: Run baseline compare smoke scenario
+        run: |
+          python scripts/data_protection_case_study.py \
+            --metadata data/raw/metadata_inventory.jsonl \
+            --secrets data/raw/secret_scan_results.jsonl \
+            --media data/raw/media_transfer_events.jsonl \
+            --policy-name portfolio-lab \
+            --output /tmp/dataprot-smoke-lab-baseline \
+            --baseline-output /tmp/dataprot-smoke-lab/data_protection_report.json
+
+      - name: Validate baseline schema
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          output_dir = Path("/tmp/dataprot-smoke-lab-baseline")
+          report = json.loads((output_dir / "data_protection_report.json").read_text(encoding="utf-8"))
+          baseline = report.get("baseline_comparison", {})
+          if not baseline.get("enabled"):
+              raise SystemExit("baseline comparison not enabled")
+          if baseline.get("summary", {}).get("status") != "completed":
+              raise SystemExit("baseline comparison status invalid")
           PY
 
       - name: Run enterprise profile smoke scenario
