@@ -98,6 +98,66 @@ BUILT_IN_POLICIES = {
 }
 
 
+EVIDENCE_TO_CONTROL = {
+    ("metadata", "metadata_removed"): {
+        "id": "DP-METADATA-01",
+        "name": "Metadata sanitization",
+        "objective": "Remove sensitive metadata from outbound/distributed artifacts.",
+    },
+    ("metadata", "metadata_check_required"): {
+        "id": "DP-METADATA-02",
+        "name": "Metadata verification",
+        "objective": "Flag residual sensitive metadata fields for remediation.",
+    },
+    ("secret_discovery", "forbidden_pattern_found"): {
+        "id": "DP-SECRET-01",
+        "name": "Secret leak control",
+        "objective": "Detect forbidden secret patterns in sample evidence.",
+    },
+    ("secret_discovery", "non_forbidden_pattern"): {
+        "id": "DP-SECRET-02",
+        "name": "Token hygiene review",
+        "objective": "Track potentially sensitive patterns that may still warrant review.",
+    },
+    ("media_control", "media_action_blocked"): {
+        "id": "DP-MEDIA-01",
+        "name": "Removable media governance",
+        "objective": "Block or reject high-risk media transfer actions.",
+    },
+    ("media_control", "media_action_warned"): {
+        "id": "DP-MEDIA-02",
+        "name": "Media transfer warning controls",
+        "objective": "Expose medium-risk transfer events before approval.",
+    },
+    ("media_control", "approved_media_transfer"): {
+        "id": "DP-MEDIA-03",
+        "name": "Media transfer approval workflow",
+        "objective": "Track approved transfer cases with auditable context.",
+    },
+    ("default", "default"): {
+        "id": "DP-GEN-01",
+        "name": "General evidence control",
+        "objective": "Maintain traceability between observed evidence and control intent.",
+    },
+}
+
+
+def evidence_to_control(category: str, rule: str) -> Dict[str, str]:
+    return EVIDENCE_TO_CONTROL.get(
+        (category, rule),
+        EVIDENCE_TO_CONTROL[("default", "default")],
+    )
+
+
+def build_controls_matrix(findings: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+    controls: Dict[str, Dict[str, str]] = {}
+    for item in findings:
+        control = item.get("control", {})
+        control_id = control.get("id", "DP-GEN-01")
+        controls[control_id] = control
+    return sorted(controls.values(), key=lambda c: c.get("id", ""))
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Data protection case study")
     parser.add_argument("--metadata", required=True, help="Path to metadata inventory JSONL")
@@ -152,6 +212,7 @@ def evaluate_metadata(policy: Dict[str, Any], metadata_rows: List[Dict[str, Any]
                         "rule": "metadata_removed",
                         "severity": "low",
                         "status": "remediated",
+                        "control": evidence_to_control("metadata", "metadata_removed"),
                         "evidence": {
                             "field": field,
                             "before": before_exif.get(field),
@@ -167,6 +228,7 @@ def evaluate_metadata(policy: Dict[str, Any], metadata_rows: List[Dict[str, Any]
                         "rule": "metadata_check_required",
                         "severity": "medium",
                         "status": "residual_risk",
+                        "control": evidence_to_control("metadata", "metadata_check_required"),
                         "evidence": {
                             "field": field,
                             "value": before_exif.get(field),
@@ -192,6 +254,7 @@ def evaluate_secrets(policy: Dict[str, Any], secret_rows: List[Dict[str, Any]]) 
                     "rule": "forbidden_pattern_found",
                     "severity": severity,
                     "status": "high_risk",
+                    "control": evidence_to_control("secret_discovery", "forbidden_pattern_found"),
                     "evidence": {
                         "line": row.get("line"),
                         "type": row.get("type"),
@@ -208,6 +271,7 @@ def evaluate_secrets(policy: Dict[str, Any], secret_rows: List[Dict[str, Any]]) 
                     "rule": "non_forbidden_pattern",
                     "severity": "low",
                     "status": "informational",
+                    "control": evidence_to_control("secret_discovery", "non_forbidden_pattern"),
                     "evidence": {
                         "line": row.get("line"),
                         "type": row.get("type"),
@@ -233,6 +297,7 @@ def evaluate_media(policy: Dict[str, Any], media_rows: List[Dict[str, Any]]) -> 
                     "rule": f"media_action_{result}",
                     "severity": "medium" if result == "warned" else "high",
                     "status": result,
+                    "control": evidence_to_control("media_control", f"media_action_{result}"),
                     "evidence": {
                         "asset_id": row.get("asset_id"),
                         "user": row.get("user"),
@@ -251,10 +316,15 @@ def evaluate_media(policy: Dict[str, Any], media_rows: List[Dict[str, Any]]) -> 
                     "rule": "approved_media_transfer",
                     "severity": "low",
                     "status": "compliant",
+                    "control": evidence_to_control("media_control", "approved_media_transfer"),
                     "evidence": {"asset_id": row.get("asset_id"), "user": row.get("user")},
                 }
             )
     return findings
+
+
+def _escape_markdown_cell(value: str) -> str:
+    return str(value).replace("|", "\\|")
 
 
 def build_report(policy: Dict[str, Any], findings: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -272,6 +342,7 @@ def build_report(policy: Dict[str, Any], findings: List[Dict[str, Any]]) -> Dict
             "medium": len([f for f in findings if f["severity"] == "medium"]),
             "low": len([f for f in findings if f["severity"] == "low"]),
         },
+        "controls": build_controls_matrix(findings),
         "findings": findings,
     }
 
@@ -305,15 +376,42 @@ def write_markdown(output_dir: Path, payload: Dict[str, Any]) -> None:
     ]
 
     for finding in payload["findings"]:
+        control = finding["control"]
         lines.extend(
             [
                 f"- **{finding['asset']}** (`{finding['category']}`)",
                 f"  - rule: {finding['rule']}",
                 f"  - severity: {finding['severity']}",
                 f"  - status: {finding['status']}",
+                f"  - control: {control['id']} ({control['name']})",
+                f"  - objective: {control['objective']}",
                 f"  - evidence: `{json.dumps(finding['evidence'], ensure_ascii=False)}`",
                 "",
             ]
+        )
+
+    lines.extend(
+        [
+            "## Evidence-to-control mapping",
+            "",
+            "| Evidence | Rule | Control ID | Control | Objective |",
+            "| --- | --- | --- | --- | --- |",
+        ]
+    )
+    for finding in payload["findings"]:
+        control = finding["control"]
+        lines.append(
+            "| "
+            + _escape_markdown_cell(finding["asset"])
+            + " | "
+            + _escape_markdown_cell(finding["rule"])
+            + " | "
+            + _escape_markdown_cell(control["id"])
+            + " | "
+            + _escape_markdown_cell(control["name"])
+            + " | "
+            + _escape_markdown_cell(control["objective"])
+            + " |"
         )
 
     lines.extend(
@@ -335,8 +433,21 @@ def write_csv(output_dir: Path, findings: List[Dict[str, Any]]) -> None:
     output_file = output_dir.joinpath("data_protection_findings.csv")
     with output_file.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.writer(handle)
-        writer.writerow(["asset", "category", "rule", "severity", "status", "evidence"])
+        writer.writerow(
+            [
+                "asset",
+                "category",
+                "rule",
+                "severity",
+                "status",
+                "control_id",
+                "control_name",
+                "control_objective",
+                "evidence",
+            ]
+        )
         for item in findings:
+            control = item["control"]
             writer.writerow(
                 [
                     item["asset"],
@@ -344,6 +455,9 @@ def write_csv(output_dir: Path, findings: List[Dict[str, Any]]) -> None:
                     item["rule"],
                     item["severity"],
                     item["status"],
+                    control["id"],
+                    control["name"],
+                    control["objective"],
                     json.dumps(item["evidence"], ensure_ascii=False),
                 ]
             )
