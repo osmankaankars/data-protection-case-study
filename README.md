@@ -82,11 +82,20 @@ data-protection-case-study/
 - Added optional policy profile support for reproducible local runs.
 - Added automated release artifact packaging with SHA-256 manifest and hash attestation flow.
 - Kept outputs stable and explicitly scoped for public portfolio safety.
+- Added synthetic data kit documentation (`data/README.md`) and deterministic portfolio-safe input conventions.
+- Added a smoke-test workflow (`.github/workflows/smoke-test.yml`) covering portfolio-lab and enterprise-lab policy profiles.
+
+### Planned
+
+- Add a concise evidence-to-control mapping table to support easier review and audit-style discussions.
+- Add a lightweight `--baseline-output` argument to compare current findings against previous run results.
+- Add a small “what changed” appendix to generated outputs for scenario storytelling.
 
 ## Release notes
 
 - v0.1.0: Initial portfolio-safe case study structure.
 - v0.2.0: Release packaging + policy profile support.
+- v0.2.1: Smoke-test and data-kit polish; added roadmap plan section.
 
 ## Outputs
 
