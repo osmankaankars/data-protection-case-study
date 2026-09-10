@@ -66,6 +66,7 @@ data-protection-case-study/
       secret_scan_results.jsonl
       media_transfer_events.jsonl
       privacy_policy.json
+    README.md
   scripts/
     data_protection_case_study.py
   templates/
@@ -92,6 +93,14 @@ data-protection-case-study/
 - `output/data_protection_report.json`
 - `output/data_protection_report.md`
 - `output/data_protection_findings.csv`
+
+## Portfolio summary (one-screen)
+
+- **Scenario:** evaluate data lifecycle checks across metadata sanitization, secret discovery, and removable-media controls.
+- **Inputs:** synthetic JSONL artifacts from `data/raw/`.
+- **Output:** JSON + Markdown + CSV findings package in `output/`.
+- **What it validates:** deterministic policy-driven classification, reusable evidence structure, and portfolio-safe reporting boundaries.
+- **Use case:** demonstrates moving from discrete tooling into one coherent privacy-assessment case study.
 
 ## Why this version is portfolio-safe
 

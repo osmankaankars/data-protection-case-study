@@ -1,0 +1,72 @@
+name: Smoke test
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  smoke-case-study:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run portfolio-lab profile smoke scenario
+        run: |
+          python scripts/data_protection_case_study.py \
+            --metadata data/raw/metadata_inventory.jsonl \
+            --secrets data/raw/secret_scan_results.jsonl \
+            --media data/raw/media_transfer_events.jsonl \
+            --policy-name portfolio-lab \
+            --output /tmp/dataprot-smoke-lab
+
+      - name: Validate schema
+        run: |
+          python - <<'PY'
+          import json
+          import csv
+          from pathlib import Path
+
+          output_dir = Path("/tmp/dataprot-smoke-lab")
+          report = json.loads((output_dir / "data_protection_report.json").read_text(encoding="utf-8"))
+
+          required_keys = {"generated_at", "case_id", "scope", "stats", "findings"}
+          missing = required_keys - set(report)
+          if missing:
+              raise SystemExit(f"missing keys in report JSON: {sorted(missing)}")
+
+          for key in {"total_findings", "high", "medium", "low"}:
+              if key not in report["stats"]:
+                  raise SystemExit(f"missing stats key: {key}")
+
+          for f in report["findings"][:5]:
+              for key in {"category", "asset", "rule", "severity", "status", "evidence"}:
+                  if key not in f:
+                      raise SystemExit(f"missing finding field: {key}")
+
+          csv_path = output_dir / "data_protection_findings.csv"
+          with csv_path.open(encoding="utf-8") as f:
+              reader = csv.reader(f)
+              header = next(reader)
+              expected = ["asset", "category", "rule", "severity", "status", "evidence"]
+              if header != expected:
+                  raise SystemExit(f"unexpected CSV header: {header}")
+          PY
+
+      - name: Run enterprise profile smoke scenario
+        run: |
+          python scripts/data_protection_case_study.py \
+            --metadata data/raw/metadata_inventory.jsonl \
+            --secrets data/raw/secret_scan_results.jsonl \
+            --media data/raw/media_transfer_events.jsonl \
+            --policy-name enterprise-lab \
+            --output /tmp/dataprot-smoke-enterprise
