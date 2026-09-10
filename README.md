@@ -24,6 +24,16 @@ The repository uses synthetic and anonymized samples only.
 3. Findings are advisory and do not represent a full DLP platform.
 4. Any external scan is limited to lab scope and approved artifacts.
 
+## Source context
+
+This case study composes controls you have already developed across earlier portfolio projects:
+
+- metadata sanitization checks reuse patterns from `metadata-scrubber-tool`,
+- secret scanning logic aligns with prior CLI-style token detection workflows,
+- removable-media analysis mirrors the control checks used in USB/endpoint hygiene examples.
+
+All inputs remain synthetic/anonymized for publication safety.
+
 ## Run the case study
 
 ```bash
